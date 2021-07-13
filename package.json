@@ -4,7 +4,8 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "dev": "nodemon src/index.js --exec babel-node src/index.js"
+    "dev": "nodemon -r dotenv/config src/toptoon.js --exec babel-node src/toptoon.js",
+    "dev:toomics": "nodemon -r dotenv/config src/toomics.js --exec babel-node src/toomics.js"
   },
   "devDependencies": {
     "@babel/cli": "^7.14.5",
@@ -16,7 +17,10 @@
   },
   "dependencies": {
     "cheerio": "^1.0.0-rc.10",
+    "dotenv": "^10.0.0",
     "node-wget": "^0.4.3",
+    "puppeteer": "^10.1.0",
+    "simplecrawler": "^1.1.9",
     "zombie": "^6.1.4"
   }
 }
