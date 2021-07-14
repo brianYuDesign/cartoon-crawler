@@ -191,3 +191,34 @@ for (let index = 0; index < details.length; index++) {
     // });
   }, index * 3000);
 }
+
+function extractItems() {
+  const extractedElements = document.querySelectorAll("img[id^=set_]");
+  const items = [];
+  for (let element of extractedElements) {
+    items.push(element.innerText);
+  }
+  return items;
+}
+
+async function scrapeInfiniteScrollItems(
+  page,
+  extractItems,
+  itemTargetCount,
+  scrollDelay = 1000
+) {
+  let items = [];
+  try {
+    let previousHeight;
+    while (items.length < itemTargetCount) {
+      items = await page.evaluate(extractItems);
+      previousHeight = await page.evaluate("document.body.scrollHeight");
+      await page.evaluate("window.scrollTo(0, document.body.scrollHeight)");
+      await page.waitForFunction(
+        `document.body.scrollHeight > ${previousHeight}`
+      );
+      await page.waitFor(scrollDelay);
+    }
+  } catch (e) {}
+  return items;
+}

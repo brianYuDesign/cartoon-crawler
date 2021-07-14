@@ -1,20 +1,11 @@
 import cheerio from "cheerio";
 import fs from "fs";
 import https from "https";
-import dotenv from "dotenv";
-
-// 模仿登入操作
-
 import puppeteer from "puppeteer";
 
-const loginAction = async () => {
-  const browser = await puppeteer.launch({
-    headless: false,
-    defaultViewport: {
-      width: 1024,
-      height: 20000
-    }
-  });
+const baseUrl = "https://www.toomics.com.tw";
+
+const loginAction = async browser => {
   const page = await browser.newPage();
   await page.goto("https://www.toomics.com.tw/tc/webtoon/episode/toon/5123");
   await page.click("#toggle-login");
@@ -30,25 +21,29 @@ const loginAction = async () => {
 
   const $ = cheerio.load(await page.content());
   const title = $(".title_content>h1").text();
-  const cartoonDetails = [];
+  const urlList = [];
 
   $(".normal_ep>a").map(async (i, link) => {
     try {
-      cartoonDetails.push({
-        url: retrieveLink(link.attribs["onclick"]),
-        ecc: getEcc(link.attribs)
-      });
+      urlList.push(getAdultValidUrl(retrieveLink(link.attribs["onclick"])));
     } catch (error) {
       console.log(error);
     }
   });
 
-  return { page, title, details: cartoonDetails };
+  return { page, title, urlList };
 };
 
 (async () => {
-  const { page, title, details } = await loginAction();
-  console.log("登入完成", title, details.length);
+  const browser = await puppeteer.launch({
+    headless: false,
+    defaultViewport: {
+      width: 1024,
+      height: 20000
+    }
+  });
+  const { page, title, urlList } = await loginAction(browser);
+  console.log("登入完成", title, urlList.length);
   const cookies = await page.cookies();
   let cookieStr = "";
 
@@ -58,8 +53,7 @@ const loginAction = async () => {
 
   console.log(cookieStr);
 
-  for (const detail of details) {
-    const url = getAdultValidUrl(detail.url);
+  for (const url of urlList) {
     await page.goto(url, { waitUntil: "networkidle2" });
 
     const body = await page.content();
@@ -100,56 +94,13 @@ const loginAction = async () => {
   await browser.close();
 })();
 
-function extractItems() {
-  const extractedElements = document.querySelectorAll("img[id^=set_]");
-  const items = [];
-  for (let element of extractedElements) {
-    items.push(element.innerText);
-  }
-  return items;
-}
-
-async function scrapeInfiniteScrollItems(
-  page,
-  extractItems,
-  itemTargetCount,
-  scrollDelay = 1000
-) {
-  let items = [];
-  try {
-    let previousHeight;
-    while (items.length < itemTargetCount) {
-      items = await page.evaluate(extractItems);
-      previousHeight = await page.evaluate("document.body.scrollHeight");
-      await page.evaluate("window.scrollTo(0, document.body.scrollHeight)");
-      await page.waitForFunction(
-        `document.body.scrollHeight > ${previousHeight}`
-      );
-      await page.waitFor(scrollDelay);
-    }
-  } catch (e) {}
-  return items;
-}
-
-// TODO: 測試only cookie env 是否work
-// TODO: 找尋18禁cookie(OK)
-
 // 取得影片清單
-const baseUrl = "https://www.toomics.com.tw";
 
 const retrieveLink = str => {
   if (str.includes("location.href=")) {
     return str.substring(str.lastIndexOf("=") + 1).replace(/'/g, "");
   }
   return str.split(",")[2].replace(/'/g, "").replace(/\s/g, "");
-};
-
-const getEcc = obj => {
-  let key = "";
-  if (!key) {
-    key = obj["data-e"] + "|" + obj["data-c"] + "|" + obj["data-v"];
-  }
-  return encodeURIComponent(key);
 };
 
 const getAdultValidUrl = returnUrl => {
